@@ -1,0 +1,83 @@
+DROP DATABASE FinalJava
+GO
+
+CREATE DATABASE FinalJava
+GO
+
+USE FinalJava
+GO
+
+DROP TABLE ICPC
+GO
+
+CREATE table ICPC (
+	TeamName varchar(100),
+	UniversityName varchar(100),
+	ProblemID varchar(10),
+	Time Int,
+	Result varchar(2)
+)
+GO
+
+SELECT * FROM ICPC 
+GO
+
+SELECT TeamName, UniversityName, COUNT(Result), SUM(Time)
+FROM ICPC
+WHERE Result = 'AC'
+GROUP BY TeamName, UniversityName, Result
+ORDER BY COUNT(Result) DESC
+GO
+
+WITH BestTeams AS (
+    SELECT UniversityName, TeamName, COUNT(DISTINCT ProblemID) AS ProblemsSolved, SUM(MinTime) AS TotalTime
+    FROM (
+        SELECT UniversityName, TeamName, ProblemID, MIN(Time) AS MinTime
+        FROM ICPC
+        WHERE Result = 'AC'
+        GROUP BY UniversityName, TeamName, ProblemID
+    ) AS FirstSolved
+    GROUP BY UniversityName, TeamName
+),
+BestUniversityTeams AS (
+    SELECT UniversityName, MAX(ProblemsSolved) AS MaxProblemsSolved, MIN(TotalTime) AS MinTotalTime
+    FROM BestTeams
+    GROUP BY UniversityName
+),
+Ranking AS (
+    SELECT BestTeams.UniversityName, TeamName, ProblemsSolved, TotalTime,
+           RANK() OVER (PARTITION BY BestTeams.UniversityName ORDER BY ProblemsSolved DESC, TotalTime ASC) AS TeamRank,
+           DENSE_RANK() OVER (ORDER BY MaxProblemsSolved DESC, MinTotalTime ASC) AS UniversityRank
+    FROM BestTeams
+    JOIN BestUniversityTeams
+    ON BestTeams.UniversityName = BestUniversityTeams.UniversityName
+)
+SELECT UniversityName, TeamName, ProblemsSolved, TotalTime, UniversityRank
+FROM Ranking
+WHERE TeamRank = 1
+GO
+
+WITH BestTeams AS (
+    SELECT UniversityName, TeamName, COUNT(DISTINCT ProblemID) AS ProblemsSolved, SUM(MinTime) AS TotalTime
+    FROM (
+        SELECT UniversityName, TeamName, ProblemID, MIN(Time) AS MinTime
+        FROM ICPC
+        WHERE Result = 'AC'
+        GROUP BY UniversityName, TeamName, ProblemID
+    ) AS FirstSolved
+    GROUP BY UniversityName, TeamName
+),
+BestUniversityTeams AS (
+    SELECT UniversityName, MAX(ProblemsSolved) AS MaxProblemsSolved, MIN(TotalTime) AS MinTotalTime
+    FROM BestTeams
+    GROUP BY UniversityName
+),
+Ranking AS (
+    SELECT UniversityName, TeamName, ProblemsSolved, TotalTime,
+           DENSE_RANK() OVER (ORDER BY ProblemsSolved DESC, TotalTime ASC) AS TeamRank
+    FROM BestTeams
+)
+SELECT UniversityName, TeamName, ProblemsSolved, TotalTime, TeamRank
+FROM Ranking
+ORDER BY TeamRank ASC
+GO
